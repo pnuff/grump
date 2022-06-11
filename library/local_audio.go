@@ -40,7 +40,9 @@ func NewLocalAudioShelf(directory string) (*LocalAudioShelf, error) {
 // TODO: add unit tests for this
 func (l *LocalAudioShelf) LoadTracks() (uint64, error) {
 	// check if it's an m3u playlist
-
+	if l.IsPlaylist() {
+		log.Info("path is a playlist")
+	}
 	// look for new files
 	i, err := l.pathScan()
 	if err != nil {
@@ -96,8 +98,8 @@ func (l *LocalAudioShelf) pathScan() (uint64, error) {
 }
 
 // IsPlaylist checks to see if the file is a playlist
-func (l *LocalAudioShelf) IsPlaylist(path string) bool {
-	p := strings.ToLower(path)
+func (l *LocalAudioShelf) IsPlaylist() bool {
+	p := strings.ToLower(l.directory)
 	r := regexp.MustCompile(`(.*).(m3u)$`)
 
 	match := r.Find([]byte(p))
