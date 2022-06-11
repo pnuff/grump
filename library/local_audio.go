@@ -19,6 +19,7 @@ import (
 type LocalAudioShelf struct {
 	directory   string
 	files       []string
+	playlist    string
 	filePattern *regexp.Regexp
 	tracks      []Track
 }
@@ -38,6 +39,8 @@ func NewLocalAudioShelf(directory string) (*LocalAudioShelf, error) {
 // LoadTracks searches through library for files to add to the database.
 // TODO: add unit tests for this
 func (l *LocalAudioShelf) LoadTracks() (uint64, error) {
+	// check if it's an m3u playlist
+
 	// look for new files
 	i, err := l.pathScan()
 	if err != nil {
@@ -90,6 +93,19 @@ func (l *LocalAudioShelf) pathScan() (uint64, error) {
 	}
 
 	return scanCount, nil
+}
+
+// IsPlaylist checks to see if the file is a playlist
+func (l *LocalAudioShelf) IsPlaylist(path string) bool {
+	p := strings.ToLower(path)
+	r := regexp.MustCompile(`(.*).(m3u)$`)
+
+	match := r.Find([]byte(p))
+	if match == nil {
+		return false
+	}
+
+	return true
 }
 
 // ShouldInclude checks if we should include the file path in
