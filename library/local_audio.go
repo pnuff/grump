@@ -25,8 +25,8 @@ type LocalAudioShelf struct {
 	tracks      []Track
 }
 
-// isPlaylist checks to see if the file is an m3u playlist
-func isPlaylist(path string) bool {
+// IsPlaylist checks to see if the file is an m3u playlist
+func IsPlaylist(path string) bool {
 	p := strings.ToLower(path)
 	r := regexp.MustCompile(`(.*).(m3u)$`)
 
@@ -41,7 +41,7 @@ func isPlaylist(path string) bool {
 func NewLocalAudioShelf(directory string) (*LocalAudioShelf, error) {
 	r := regexp.MustCompile(`(.*).(mp3|flac|wav|ogg)$`)
 
-	if isPlaylist(directory) {
+	if IsPlaylist(directory) {
 		l := LocalAudioShelf{
 			playlist:    directory,
 			filePattern: r,
