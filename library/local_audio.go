@@ -1,6 +1,7 @@
 package library
 
 import (
+	"bufio"
 	"context"
 	"errors"
 	"fmt"
@@ -24,27 +25,50 @@ type LocalAudioShelf struct {
 	tracks      []Track
 }
 
+// isPlaylist checks to see if the file is an m3u playlist
+func isPlaylist(path string) bool {
+	p := strings.ToLower(path)
+	r := regexp.MustCompile(`(.*).(m3u)$`)
+
+	match := r.Find([]byte(p))
+	if match == nil {
+		return false
+	}
+	return true
+}
+
 // NewLocalAudioShelf creates a shelf for a specific directory.
 func NewLocalAudioShelf(directory string) (*LocalAudioShelf, error) {
 	r := regexp.MustCompile(`(.*).(mp3|flac|wav|ogg)$`)
 
-	l := LocalAudioShelf{
-		directory:   directory,
-		filePattern: r,
+	if isPlaylist(directory) {
+		l := LocalAudioShelf{
+			playlist:    directory,
+			filePattern: r,
+		}
+		return &l, nil
+	} else {
+		l := LocalAudioShelf{
+			directory:   directory,
+			filePattern: r,
+		}
+		return &l, nil
 	}
-
-	return &l, nil
 }
 
 // LoadTracks searches through library for files to add to the database.
 // TODO: add unit tests for this
 func (l *LocalAudioShelf) LoadTracks() (uint64, error) {
-	// check if it's an m3u playlist
-	if l.IsPlaylist() {
-		log.Info("path is a playlist")
+	var err error
+	var i uint64
+	if len(l.playlist) > 0 {
+		log.WithField("playlist", l.playlist).Info("playlist found")
+		// load playlist, return
+		i, err = l.loadPlaylist()
+	} else {
+		// look for new files
+		i, err = l.pathScan()
 	}
-	// look for new files
-	i, err := l.pathScan()
 	if err != nil {
 		return i, err
 	}
@@ -97,17 +121,35 @@ func (l *LocalAudioShelf) pathScan() (uint64, error) {
 	return scanCount, nil
 }
 
-// IsPlaylist checks to see if the file is a playlist
-func (l *LocalAudioShelf) IsPlaylist() bool {
-	p := strings.ToLower(l.directory)
-	r := regexp.MustCompile(`(.*).(m3u)$`)
+// LoadPlaylist loads the files in the m3u playlist specified by l.directory
+func (l *LocalAudioShelf) loadPlaylist() (uint64, error) {
+	f, err := os.Open(l.playlist)
+	if err != nil {
+		return 0, fmt.Errorf("could not open file [%s]: [%s]", l.directory, err.Error())
+	}
+	s := bufio.NewScanner(f)
+	defer f.Close()
 
-	match := r.Find([]byte(p))
-	if match == nil {
-		return false
+	// add each file name to the files list
+	var scanCount uint64
+
+	for s.Scan() {
+		path := s.Text()
+		if !l.ShouldInclude(path) {
+			log.WithField("path", path).Debug("discarding path")
+			continue
+		}
+
+		log.WithField("path", path).Debug("adding path to library")
+		l.files = append(l.files, path)
+		scanCount++
+	}
+	if err = s.Err(); err != nil {
+		log.WithField("playlist", l.playlist).Warn("error reading playlist")
+		return scanCount, err
 	}
 
-	return true
+	return scanCount, nil
 }
 
 // ShouldInclude checks if we should include the file path in
